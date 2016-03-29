@@ -44,7 +44,7 @@ $form= New-Object Windows.Forms.Form
 $form.Size = New-Object System.Drawing.Size(400,400) 
 $form.StartPosition = "CenterScreen"
 $form.FormBorderStyle = 'Fixed3D'
-$form.Text = " A Powershell GUI by Juan Hernandez"
+$form.Text = " A Powershell GUI by Phillip Marshall"
 
 ## Create a close button, add text, set location, action and add it to the form
 $B_close = New-Object Windows.Forms.Button
@@ -71,7 +71,7 @@ $form.Controls.Add($InputTextBox)
 $label2 = New-Object Windows.Forms.Label
 $label2.Location = New-Object Drawing.Point 20,70
 $label2.Size = New-Object Drawing.Point 150,20
-$label2.text = "Enter SOAP bericht:"
+$label2.text = "Enter SOAP body:"
 $form.controls.add($label2)
 
 ##create an input box

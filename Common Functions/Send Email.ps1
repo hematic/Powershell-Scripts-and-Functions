@@ -24,28 +24,28 @@ Param (
         #>
         
                 [Parameter(Mandatory=$True,Position=3)]
-                [String]$Body
+                [String]$Body,
 				
 		<# 
         .PARAMETER SMTPServer = The address of the SMTP server to use. EX : smtp.gmail.com
         #>
         
                 [Parameter(Mandatory=$True,Position=4)]
-                [String]$SMTPServer
+                [String]$SMTPServer,
 				
 		<# 
         .PARAMETER SMTPPort = The SMTP port to use.
         #>
         
                 [Parameter(Mandatory=$True,Position=5)]
-                [String]$SMTPPort
+                [String]$SMTPPort,
 				
 				 <# 
         .PARAMETER Username = The username to send.
         #>
         
                 [Parameter(Mandatory=$True,Position=6)]
-                [String]$Username
+                [String]$Username,
 				
 				 <# password to send.
         #>
