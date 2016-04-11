@@ -1,13 +1,2 @@
-function Get-GeoIP 
-{
-    param
-	(
-    	[Parameter(Mandatory=$true)]
-    	[System.Net.IPAddress]$ip
-    )
-
-    $webclient = New-Object System.Net.webclient
-    $providerRoot = "http://freegeoip.net/xml/"
-    [xml]$geoData = $webclient.downloadstring($providerRoot+$ip)
-    Write-Output $geoData.response
-}
+$restapiuri = "http://geoip.nekudo.com/api/173.65.16.57"
+$JSONResponse = Invoke-RestMethod -Uri $restapiuri -ContentType application/json -method Get

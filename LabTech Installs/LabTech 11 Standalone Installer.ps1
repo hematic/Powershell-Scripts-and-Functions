@@ -138,20 +138,20 @@ Function End-Script
 #Variable Declarations
 
 $ErrorActionPreference = 'silentlycontinue';
-[String]$LabTechCDKey = '7177-3977-5455-6576';
+[String]$LabTechCDKey = 'SET ME';
 [String]$InstallErrorPath = "$env:windir\temp\ltinstall\InstallError.txt"
 [String]$WorkingDir = "$env:windir\temp\LTInstall"
 [String]$LogfilePath = "$WorkingDir\InstallLog.txt"
 [String]$AdminPasswordPath = "$WorkingDir\AdminPass.txt"
-[String]$InstallDownload = "http://s3.amazonaws.com/ltpremium/Phillip/installation_assemblies.zip"
+[String]$InstallDownload = "SET ME"
 [String]$InstallSavePath = "$WorkingDir\LtInstall.zip"
 [String]$SqlYogDownload = "http://automationfiles.hostedrmm.com/third_party_apps/sqlyog_103/SQLyog-10.3.0-1Community.exe"
 [String]$SqlYogSavePath = "$WorkingDir\SQLyog-10.3.0-1Community.exe"
 [String]$ResultsPath = "$WorkingDir\LtInstallResults.txt"
 [String]$PSErrorsPath = "$workingDir\LTInstall_PSErrors.txt"
-[String]$RootUser = "root";
-[String]$RootPassword = "wowpass3";
-[String]$SQLServerAddress = "localhost";
+[String]$RootUser = "SET ME";
+[String]$RootPassword = "SET ME";
+[String]$SQLServerAddress = "SET ME";
 
 # array that will be used to store any role names that fail to install.
 [Array]$RolesThatFailedToInstall = @()
@@ -450,6 +450,79 @@ ELSE
 
 Write-Output "Beginning installation of LabTech Server ..........................";
 
-$InstallLabTech = New-Object System.Diagnostics.ProcessStartInfo("$ENV:windir\system32\msiexec.exe", "/i `"$WorkingDir\InstallServer.msi`" /qn /norestart /L*V `"$WorkingDir\LT_Install_Log.txt`" CDKEYTEXT=`"$($LabTechCDKey)`" MYSQLSERVERADDRESS=`"$SQLServerAddress`" MYSQLROOTUSER=`"$RootUser`" MySqlRootPassword=`"$RootPassword`" LABTECHIGNITE=1 LTADMINWEBACCESS=1");
+$InstallLabTech = New-Object System.Diagnostics.ProcessStartInfo("$ENV:windir\system32\msiexec.exe", "/i `"$WorkingDir\InstallServer.msi`" /qn /norestart /L*V `"$WorkingDir\LT_Install_Log.txt`" CDKEYTEXT=`"$($LabTechCDKey)`" MYSQLSERVERADDRESS=`"$SQLServerAddress`" MYSQLROOTUSER=`"$RootUser`" MySqlRootPassword=`"$RootPassword`" LABTECHIGNITE=1 LTADMINWEBACCESS=1 LTADMINPASSWORD=`"l@bt3ch`" ADDLOCAL=DatabaseFeature,WebFeature,ControlCenterFeature,RemoteAgentFeature SERVERADDRESS=`"localhost`" CFGWEBSERVERADDRESS=`"localhost`"");
 $InstallLabTech.UseShellExecute = $False 
 StartProcWithWait $InstallLabTech;
+
+<#######################################################################################>
+#Check for Errors
+
+$InstallLog = Get-Content -Path "$WorkingDir\LT_Install_Log.txt" | out-string
+
+if(!(gwmi -cl win32_product | where-object { $_.Name -like '*LabTech® Software*' })) 
+	{ 
+        If (Test-Path -Path "$WorkingDir\LT_Install_Log.txt")
+        {
+            $ErrorRegex = "(?:INSTALLATION ERROR BEGIN[\s][\s\S]+[\d\d:]+\d+.[\d]+:\s)([\s\S]+)(?:Action\sLog\s)"
+            $InstallError = ([regex]::matches($InstallLog, $ErrorRegex)).groups[1].value
+            If($InstallError)
+            {
+                Out-File -FilePath $InstallErrorPath -InputObject $InstallError
+                Write-Log "FAILED to install LabTech Server ..................................";
+                End-Script -Result 'Failure12';
+            }
+            Write-Log "No Install Error Could Be Parsed .................................."
+            Write-Log "FAILED to install LabTech Server ..................................";
+	        End-Script -Result 'Failure13';
+        }
+
+        Else
+        {
+            Write-Log "No Install Log was found .................................."
+            Write-Log "FAILED to install LabTech Server ..................................";
+	        End-Script -Result 'Failure14';
+        }
+	}
+	ELSE
+	{
+	    Write-Log "SUCCESSFULLY installed LabTech Server .............................";
+        Write-Log "Retrieving LTAdmin Password from the Install Log."
+        $PasswordRegex = "(?:LTADMINPASSWORD\s=\s)(.+)"
+        $AdminPassword = ([regex]::matches($InstallLog, $PasswordRegex)).groups[1].value
+        If($AdminPassword)
+        {
+            Write-Log "Admin Password successfully retrieved. We are NOT logging it here for security reasons. Saving it to a file which will be deleted instead."
+            Out-file -FilePath $AdminPasswordPath -InputObject $AdminPassword
+        }
+
+        Else
+        {
+            Write-Log "Unable to retrieve the admin password from the installation log. Logging this problem to a file but continuing with the installation process."
+            Out-file -FilePath $AdminPasswordPath -InputObject "NOPASS"
+        }
+	}
+
+###############################################################################
+# Create the Robots.txt file 
+# This prevent crawlers from picking up this LabTech server's web components.
+###############################################################################
+
+Set-Content "${env:SystemDrive}\inetpub\wwwroot\robots.txt" "User-agent: *`r`nDisallow: /";
+
+set-ItemProperty -PATH "HKLM:\SYSTEM\CurrentControlSet\services\Tcpip\Parameters" -NAME EnableTCPChimney -Value 0
+set-ItemProperty -PATH "HKLM:\SYSTEM\CurrentControlSet\services\Tcpip\Parameters" -NAME MaxUserPort -Value 65534
+set-ItemProperty -PATH "HKLM:\SYSTEM\CurrentControlSet\services\Tcpip\Parameters" -NAME TcpTimedWaitDelay -Value 30
+set-ItemProperty -PATH "HKLM:\SYSTEM\CurrentControlSet\services\Tcpip\Parameters" -NAME ReservedPorts -Value '3306-3306,8000-9024,40000-40100'
+
+
+<#######################################################################################>
+#Install SQLYog
+
+$DownloadObj = new-object System.Net.WebClient;
+$DownloadObj.DownloadFile($SqlYogDownload, $SqlYogSavePath);
+
+$InstallYog = New-Object System.Diagnostics.ProcessStartInfo("$SqlYogSavePath","/S");
+$InstallYog.UseShellExecute = $False 
+StartProcWithWait $InstallYog;
+
+End-Script -Result "LabTech Installation Process Completed!";
