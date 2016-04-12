@@ -1,2 +1,2 @@
-$restapiuri = "http://geoip.nekudo.com/api/173.65.16.57"
+$restapiuri = "http://geoip.nekudo.com/api/$Ip"
 $JSONResponse = Invoke-RestMethod -Uri $restapiuri -ContentType application/json -method Get
