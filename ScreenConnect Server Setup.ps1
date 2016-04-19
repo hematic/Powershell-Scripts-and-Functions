@@ -1,39 +1,105 @@
-﻿#Set-ExecutionPolicy Unrestricted -Force; (New-Object System.Net.WebClient).DownloadString("https://cloud.screenconnect.com/downloads/ConfigureServer.ps1") > \ConfigureServer.ps1; \ConfigureServer.ps1
-
-Param 
+﻿Param 
 (
-  #  [parameter(Mandatory = $true)] $ip2, This may not be needed
-  #  [parameter(Mandatory = $true)] $pfxPassword,
-     [parameter(Mandatory = $true)] $windowsPassword
+     [parameter(Mandatory = $true,Position = 0)] $PFXPassword,
+     [parameter(Mandatory = $true,Position = 1)] $WindowsPassword,
+     [parameter(Mandatory = $false,Position = 2)] $IP2
 )
 
-#region Do Variable Set
+#region Do Function Declaration
 
-Write-Output "Beginning Variable Set Region"
-[String]$AdapterName = (Get-NetAdapter | Select -First 1 -ExpandProperty Name)
-[String]$Gateway = (Get-WmiObject -Class Win32_IP4RouteTable | ? { $_.destination -eq '0.0.0.0' -and $_.mask -eq '0.0.0.0'} | Sort-Object metric1 | % {$_.nexthop })
-[String]$dns = "209.244.0.3" #level3
-[Array]$ip1 = (Get-NetIPConfiguration | ? { $_.IPv4DefaultGateway.NextHop -eq $gateway } | % { $_.IPv4Address.IPAddress })
-[Array]$subnetMask = (Get-WmiObject Win32_NetworkAdapterConfiguration | ? { $_.IPSubnet.Length } | % { $_.IPSubnet[0] })
-[String]$pfxThumbprint = "E31975030B72A245878BBC336BA87CF1DEF0C3D8"
-[String]$pfxUrl = "https://cloud.screenconnect.com/downloads/ScreenConnectComWildcard.pfx"
+Function Write-Log
+{
+	<#
+	.SYNOPSIS
+		A function to write ouput messages to a logfile.
+	
+	.DESCRIPTION
+		This function is designed to send messages to a logfile of your choosing.
+		Use it to replace something like write-host for a more long term log.
+	
+	.PARAMETER Message
+		The message being written to the log file.
+	
+	.EXAMPLE
+		PS C:\> Write-Log -Message 'This is the message being written out to the log.' 
+	
+	.NOTES
+		N/A
+#>
+	
+	Param
+	(
+		[Parameter(Mandatory = $True, Position = 0)]
+		[String]$Message
+	)
+
+    
+	add-content -path $LogFilePath -value $Message
+    write-log $Message
+}
+
+#endregion
+
+#region Do Variable Set
+[String]$DNS = "209.244.0.3" #level3
+[String]$PFXThumbprint = "E31975030B72A245878BBC336BA87CF1DEF0C3D8"
+[String]$PFXUrl = "https://cloud.screenconnect.com/downloads/ScreenConnectComWildcard.pfx"
 [String]$cloudServiceUrl = "https://cloud.screenconnect.com/downloads/CloudService.zip"
 [HashTable]$cloudServices = @{"ScreenConnect Router" = "Router"; "ScreenConnect Instance Manager" = "InstanceManager" }
 [String]$windowsUserName = "screenconnect"
 [Array]$rdpIPs = @("96.10.31.0/24", "63.145.136.0/24", "70.46.245.0/24")
-#Set-PSDebug -Trace 1
-# this makes downloads 100x faster
-$progressPreference = 'SilentlyContinue'
+[String]$LogFilePath = "$env:windir\temp\SCServerSetup.txt"
+$ProgressPreference = 'SilentlyContinue'
+#endregion
+
+#region Do Get Ip1 Information
+
+[Object]$IP1Adapter = (Get-NetAdapter | Where-Object {$_.status -eq 'Up'} | Select -First 1)
+[Object]$IP1Config = Get-NetIPConfiguration | Where-Object {$_.InterfaceIndex -eq $IP1Adapter.ifindex}
+[String]$SubnetMask = (Get-WmiObject Win32_NetworkAdapterConfiguration | ? { $_.IPSubnet.Length } | % { $_.IPSubnet[0] })
+[String]$IP1ExternalIP = 
+
+#endregion
+
+#region Do Get IP2 Information
+if (!$ip2) 
+{
+    write-log "IP2 Was NOT passed. Going to check for two LAN IPs"
+    [Array]$Ip1Split = ($IP1Config.IPv4Address.ipaddress).split(".")
+
+    Foreach($Interface in Get-NetIPConfiguration)
+    {
+        $InterfaceIpSplit = ($Interface.ipv4address.ipaddress).split(".")
+        If($Ip1Split[0] -eq $InterfaceIpSplit[0] -and $($Interface.ipv4address.ipaddress) -ne $($IP1Config.ipv4address.ipaddress))
+        {
+            Write-Log "Second Lan IP Address Identified : Alias - $($Interface.ipv4address.alias) IP - $($Interface.ipv4address.ipaddress)"
+            $IP2Config = $Interface
+        }
+    }
+
+    If(!$IP2Config)
+    {
+        Write-Log "Unable to find a second lan IP with the same first Octet."
+        exit;
+    }
+
+
+} 
+
+write-log "Adding IP2=$ip2 and configuring static with /24 subnet and ADAPTER=$adapterName, IP1=$ip1, SUBNETMASK=$subnetMask, GATEWAY=$gateway, DNS=$dns"
+netsh interface ip set address $adapterName static $ip1 $subnetMask $gateway
+netsh interface ip add address $adapterName $ip2 $subnetMask
+
 #endregion
 
 #region Do Configure Time
-Write-Output "Beginning Time Server Configuration Region"
+Write-Log "Beginning Time Server Configuration Region"
 w32tm /config /manualpeerlist:pool.ntp.org /syncfromflags:MANUAL 2>&1 | Out-Null
 Stop-Service w32time
 
 If((Get-Service w32time).status -ne 'Stopped')
 {
-    Write-output "Unable to stop the w32time service."
+    Write-Log "Unable to stop the w32time service."
     exit;
 }
 
@@ -41,56 +107,63 @@ Start-Service w32time
 
 If((Get-Service w32time).status -ne 'Running')
 {
-    Write-output "Unable to start the w32time service."
+    Write-Log "Unable to start the w32time service."
     exit;
 }
 #endregion
 
 #region Do Configure PageFile
-# TODO this is kind of a problem because it really needs a reboot for this
-Write-Output "Setting page file to auto-managed"
+Write-Log "Setting page file to auto-managed"
 $System = gwmi Win32_ComputerSystem -EnableAllPrivileges
 $System.AutomaticManagedPagefile = $True
 $System.Put() | Out-Null
 #endregion
 
 #region Do Stop Services
-Write-Output "Beginning the Stop Services Region"
+Write-Log "Beginning the Stop Services Region"
 Foreach($Service in $($cloudServices.GetEnumerator() | Select -ExpandProperty Name))
 { 
+    Write-Log "Stopping the $Service service."
     Stop-Service $Service -ErrorAction SilentlyContinue 
 
     If((Get-Service $Service).status -ne 'Stopped')
     {
-        Write-output "Unable to stop the $Service service."
+        Write-Log "Unable to stop the $Service service."
         exit;
+    }
+    Else
+    {
+        Write-Log "Service Stopped Successfully."
     }
 }
 #endregion
 
 #region Do Configure Windows Firewall
-Write-Output "Beginning the Configure Windows Firewall Region"
+Write-Log "Beginning the Configure Windows Firewall Region"
 
 if (Get-NetFirewallRule | ? { $_.DisplayName -eq "Allow 80 Inbound" }) 
 {
-    Write-Output "Firewall already configured."
+    Write-Log "Firewall already configured."
 } 
 
 else 
 {
-    Write-Output "Configuring firewall main ports..."
+    Write-Log "Configuring firewall main ports..."
     New-NetFirewallRule -DisplayName "Allow 80 Inbound" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 80 | Out-Null
+    Write-Log "Port 80 Rule Created."
     New-NetFirewallRule -DisplayName "Allow 443 Inbound" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 443 | Out-Null
+    Write-Log "Port 443 Rule Created."
     New-NetFirewallRule -DisplayName "Allow 5986 Inbound" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 5986 | Out-Null
+    Write-Log "Port 5986 Rule Created."
 }
 
 if (!(Get-NetFirewallRule | ? { $_.DisplayName -eq "Allow 3389 Inbound" })) 
 {
-    Write-Output "Configuring firewall RDP..."
     New-NetFirewallRule -DisplayName "Allow 3389 Inbound" -Direction Inbound -Action Allow -Protocol TCP -LocalPort 3389 -RemoteAddress $rdpIPs | Out-Null
+    Write-Log "Port 3389 Rule Created."
 }
 
-Write-Output "Disabling blanket RDP and management firewall rules..."
+Write-Log "Disabling blanket RDP and management firewall rules..."
 Get-NetFirewallRule | ? { $_.DisplayName.StartsWith("Remote Desktop") } | Disable-NetFirewallRule
 Get-NetFirewallRule | ? { $_.DisplayName.StartsWith("Windows Remote Management") } | Disable-NetFirewallRule
 Get-NetFirewallRule | ? { $_.DisplayName.StartsWith("Hyper-V") } | Disable-NetFirewallRule
@@ -98,13 +171,8 @@ Get-NetFirewallRule | ? { $_.DisplayName.StartsWith("RDP") } | Disable-NetFirewa
 Get-NetFirewallRule | ? { $_.DisplayName.StartsWith("SSH") } | Disable-NetFirewallRule
 #endregion
 
-<# we worked around this
-Write-Output "Adding desktop experience for VFW encoding..."
-Install-WindowsFeature Desktop-Experience
-#>
-
 #region Do Download Debuggers
-Write-Output "Beginning Download debuggers Region"
+Write-Log "Beginning Download debuggers Region"
 
 Try
 {
@@ -114,7 +182,7 @@ Try
 Catch
 {
     $DownloadErr = $_.Exception.Message;
-    Write-output $DownloadErr
+    Write-Log $DownloadErr
     exit;
 }
 
@@ -126,34 +194,29 @@ Try
 Catch
 {
     $DownloadErr = $_.Exception.Message;
-    Write-output $DownloadErr
+    Write-Log $DownloadErr
     exit;
 }
 #endregion
 
-<# this would be nice, but OVH doesn't have it
-Install-WindowsFeature DNS
-#>
-
 #region Do Add Reg Key and File Structure
-# not 100% sure this will help with anything but to keep servers consistent
-Write-Output "Beginning Add Reg Key and File Structure Region"
+Write-Log "Beginning Add Reg Key and File Structure Region"
 New-Item 'SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System' -Force | New-ItemProperty -Name LocalAccountTokenFilterPolicy -Value 1 -Force | Out-Null
 
 if (Test-Path \ScreenConnect) 
 {
-    Write-Output "Directory structure already configured."
+    Write-Log "Directory structure already configured."
 } 
 
 else 
 {
-    Write-Output "Creating directory structure..."
+    Write-Log "Creating directory structure..."
     New-Item \ScreenConnect -ItemType Directory -Force | Out-Null
     New-Item \ScreenConnect\Instances -ItemType Directory -Force | Out-Null
 
     If(Test-Path \ScreenConnect\Instances)
     {
-        Write-Output "Directory Structure created successfully!"
+        Write-Log "Directory Structure created successfully!"
         $acl = new-object System.Security.AccessControl.DirectorySecurity
         $acl.SetAccessRuleProtection($true, $false)
         $acl.AddAccessRule((new-object System.Security.AccessControl.FileSystemAccessRule("Administrators", "FullControl", "ObjectInherit, ContainerInherit", "None", "Allow")))
@@ -163,29 +226,56 @@ else
 
     Else
     {
-        Write-Output "Failed to create directory structure."
+        Write-Log "Failed to create directory structure."
         exit;
     }
 }
 #endregion
 
-<#
-if (Get-ChildItem -Path cert:\LocalMachine\My | ? { $_.Thumbprint -eq $pfxThumbprint }) {
-    Write-Output "Certificate already installed."
-} else {
-    Write-Output "Downloading and installing certificate..."
-    Invoke-WebRequest $pfxUrl -OutFile $env:TEMP\cert.pfx
-    Import-PfxCertificate -FilePath $env:TEMP\cert.pfx -Password (ConvertTo-SecureString $pfxPassword -AsPlainText -Force) cert:\localMachine\my | Out-Null
+#region Do Add PFX Certificate
+Write-Log "Beginning Do Add PFX Certificate Region"
+
+if (Get-ChildItem -Path cert:\LocalMachine\My | ? { $_.Thumbprint -eq $pfxThumbprint }) 
+{
+    Write-Log "Certificate already installed."
+} 
+
+else 
+{
+    Write-Log "Downloading and installing certificate..."
+    
+    Try
+    {
+        Invoke-WebRequest $pfxUrl -OutFile $env:TEMP\cert.pfx
+    }
+
+    Catch
+    {
+        $DownloadErr = $_.Exception.Message;
+        Write-Log $DownloadErr
+        exit;
+    }
+
+    Import-PfxCertificate -FilePath $env:TEMP\cert.pfx -Password (ConvertTo-SecureString $pfxPassword -AsPlainText -Force) cert:\localMachine\my -ErrorVariable $PFXError
     netsh http delete sslcert "ipport=0.0.0.0:443"
     netsh http add sslcert "ipport=0.0.0.0:443" "certhash=$pfxThumbprint" "appid={00000000-0000-0000-0000-000000000000}"
     del $env:TEMP\cert.pfx
+
+    If(!$PFXError)
+    {
+        Write-Log "Cert Installed successfully!"
+    }
+
+    Else
+    {
+        Write-Log "Cert failed to install! Error was $PfxError"
+        exit;
+    }
 }
-#>
+#endregion
 
 #region Do Enable PowerShell Remoting
-Write-Output "Configuring powershell remoting..."
-#Enable-PSRemoting -Force -ErrorAction SilentlyContinue
-#goddamn -remote:computername seems to be required and I don't know why
+Write-Log "Configuring powershell remoting..."
 winrm set winrm/config/service/auth "@{Basic=`"true`"}" -remote:$env:COMPUTERNAME 2>&1 | Out-Null
 winrm delete "winrm/config/Listener?Address=*+Transport=HTTPS" -remote:$env:COMPUTERNAME 2>&1 | Out-Null
 winrm create "winrm/config/Listener?Address=*+Transport=HTTPS" "@{Port=`"5986`";CertificateThumbprint=`"$pfxThumbprint`"}" -remote:$env:COMPUTERNAME 2>&1 | Out-Null
@@ -194,12 +284,12 @@ winrm create "winrm/config/Listener?Address=*+Transport=HTTPS" "@{Port=`"5986`";
 #region Do Create Windows Account
 if ([adsi]::Exists("WinNT://" + (hostname) + "/$windowsUserName")) 
 {
-    Write-Output "Skipping creating windows account."
+    Write-Log "Skipping creating windows account."
 } 
 
 else 
 {
-    Write-Output "Creating windows account..."
+    Write-Log "Creating windows account..."
     net accounts /maxpwage:unlimited
 
     $windowsUser = ([adsi]("WinNT://" + (hostname))).Create("User", $windowsUserName)
@@ -212,18 +302,18 @@ else
 
 if ($windowsPassword -eq "") 
 {
-    Write-Output "Skipping setting windows password."
+    Write-Log "Skipping setting windows password."
 } 
 
 else 
 {
-    Write-Output "Setting windows password..."
+    Write-Log "Setting windows password..."
     ([adsi]("WinNT://" + (hostname) + "/$windowsUserName")).SetPassword($windowsPassword)
 }
 #endregion
 
 #region Do Install Cloud Service Files
-Write-Output "Installing cloud service files..."
+Write-Log "Installing cloud service files..."
 
 Try
 {
@@ -233,7 +323,7 @@ Try
 Catch
 {
     $DownloadErr = $_.Exception.Message;
-    Write-output $DownloadErr
+    Write-Log $DownloadErr
     exit;
 }
 
@@ -248,7 +338,7 @@ Foreach($ServiceDirectory in $($cloudServices.GetEnumerator() | Select -ExpandPr
     
 Remove-Item $env:TEMP\CloudService.zip
 
-Write-Output "Configuring services..."
+Write-Log "Configuring services..."
 foreach ($cloudService in $cloudServices.GetEnumerator()) 
 {
     sc.exe delete $cloudService.Name
@@ -257,23 +347,43 @@ foreach ($cloudService in $cloudServices.GetEnumerator())
 }
 #endregion
 
-<# Don't think this is needed. Must test.
-if ($ip2 -eq "") {
-    Write-Output "Skipping setting IP."
-} else {
-    Write-Output "Adding IP2=$ip2 and configuring static with /24 subnet and ADAPTER=$adapterName, IP1=$ip1, SUBNETMASK=$subnetMask, GATEWAY=$gateway, DNS=$dns"
-    netsh interface ip set address $adapterName static $ip1 $subnetMask $gateway
-    netsh interface ip add address $adapterName $ip2 $subnetMask
-}
-#>
+#region Do IP2 Config
+if (!$ip2) 
+{
+    write-log "IP2 Was NOT passed. Going to check for two LAN IPs"
+    [Array]$Ip1Split = ($IP1Config.IPv4Address.ipaddress).split(".")
+
+    Foreach($Interface in Get-NetIPConfiguration)
+    {
+        $InterfaceIpSplit = ($Interface.ipv4address.ipaddress).split(".")
+        If($Ip1Split[0] -eq $InterfaceIpSplit[0])
+        {
+            Write-Log "Second Lan IP Address Identified : Alias - $($Interface.ipv4address.alias) IP - $($Interface.ipv4address.ipaddress)"
+            $IP2Config = $Interface
+        }
+    }
+
+    If(!$IP2Config)
+    {
+        Write-Log "Unable to find a second lan IP with the same first Octet."
+        exit;
+    }
+
+
+} 
+
+write-log "Adding IP2=$ip2 and configuring static with /24 subnet and ADAPTER=$adapterName, IP1=$ip1, SUBNETMASK=$subnetMask, GATEWAY=$gateway, DNS=$dns"
+netsh interface ip set address $adapterName static $ip1 $subnetMask $gateway
+netsh interface ip add address $adapterName $ip2 $subnetMask
+
+#endregion
 
 #region Do Set DNS and Start Services
 
-Write-Output "Setting DNS..."
+Write-Log "Setting DNS..."
 netsh interface ip set dns $adapterName static $dns
 
-
-Write-Output "Starting services..."
+write-log "Starting services..."
 
 Foreach($Service in $($cloudServices.GetEnumerator() | Select -ExpandProperty Name))
 {
@@ -281,31 +391,8 @@ Foreach($Service in $($cloudServices.GetEnumerator() | Select -ExpandProperty Na
 
     If((Get-Service $Service).status -ne 'Running')
     {
-        Write-output "Failed to start the $Service service."
+        write-log "Failed to start the $Service service."
         exit;
     }
 }
 #endregion
-
-<#
-    #New-Service -Name "ScreenConnect Router" -BinaryPathName "" -StartupType
-    #New-Service -Name "ScreenConnect Instance Manager" -BinaryPathName "" -StartupType
-
-
-    # doens't work, have to add it for each site (which we do in code now)
-    #netsh http add urlacl url=https://+:443/ user=\Everyone
-
-    # powershell stuff here has ... problems ... to say the least
-    #$adapter = Get-NetAdapter -Name Ethernet
-    #$adapter | Set-NetIPInterface -DHCP Enabled
-    #Remove-NetRoute -DestinationPrefix 0.0.0.0/0 -Confirm:$false
-    #$adapter | Remove-NetIPAddress -Confirm:$false
-    #$adapter | Set-NetIPInterface -DHCP Disabled
-    #$adapter | New-NetIPAddress -IPAddress $ip1 -PrefixLength 24
-    #$adapter | New-NetIPAddress -IPAddress $ip2 -PrefixLength 24
-    #$adapter | New-NetRoute -DestinationPrefix 0.0.0.0/0 -NextHop 192.168.2.1
-
-    #netsh firewall set opmode disable
-    #Set-NetFirewallProfile -Profile Domain,Public,Private -Enabled False
-    #$dns = (Get-NetIPConfiguration | ? { $_.IPv4DefaultGateway.NextHop -eq $gateway } | % { $_.DNSServer } | % { $_.ServerAddresses }),
-#>
