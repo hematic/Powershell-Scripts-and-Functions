@@ -138,7 +138,7 @@ Function End-Script
 #Variable Declarations
 
 $ErrorActionPreference = 'silentlycontinue';
-[String]$LabTechCDKey = 'SET ME';
+[String]$LabTechCDKey = '@CDKEY@';
 [String]$InstallErrorPath = "$env:windir\temp\ltinstall\InstallError.txt"
 [String]$WorkingDir = "$env:windir\temp\LTInstall"
 [String]$LogfilePath = "$WorkingDir\InstallLog.txt"
@@ -149,9 +149,9 @@ $ErrorActionPreference = 'silentlycontinue';
 [String]$SqlYogSavePath = "$WorkingDir\SQLyog-10.3.0-1Community.exe"
 [String]$ResultsPath = "$WorkingDir\LtInstallResults.txt"
 [String]$PSErrorsPath = "$workingDir\LTInstall_PSErrors.txt"
-[String]$RootUser = "SET ME";
-[String]$RootPassword = "SET ME";
-[String]$SQLServerAddress = "SET ME";
+[String]$RootUser = "@MYSQLUSER@";
+[String]$RootPassword = "@MYSQLPASS@";
+[String]$SQLServerAddress = "@MYSQLHOST@";
 
 # array that will be used to store any role names that fail to install.
 [Array]$RolesThatFailedToInstall = @()
