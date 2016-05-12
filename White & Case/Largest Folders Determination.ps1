@@ -28,85 +28,85 @@ Function Write-Log
 	
 }
 
-function Get-DirSize {
-    param
-    (
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true)]
-        [string]$Root
-    )
-    
-    BEGIN {}
- 
-    PROCESS
-    {
+Function Process-Drive
+{
 
-        $size = 0
-        $folders = @()
-        $Items = Get-ChildItem $Root -Force -ea SilentlyContinue
-  
-        foreach ($item in $Items) 
-        {
-            if ($item.PSIsContainer) 
-            {
-                $subfolders = @(Get-DirSize $($item.FullName))
-                $size += $subfolders[-1].Size
-                $folders += $subfolders
-            } 
-        
-            else 
-            {
-                $size += $file.Length
-            }
+	
+	Param
+	(
+		[Parameter(Mandatory = $True, Position = 0)]
+		[String]$DriveID
+	)
+
+    $Items = Get-ChildItem $DriveID -Attributes directory -Recurse -Force -ea SilentlyContinue
+    If(!$Items)
+    {
+        Write-Log "No folders found on Drive $($Drive.DeviceID) for Server $(hostname)"
+        Return "No Folders"
+    }
+
+    Write-Log "Beginning to process $($Items.count) on drive $Root"
+
+    Foreach($Item in $Items)
+    {
+        $FolderStats = Get-ChildItem -Path $($Item.fullname) -ErrorAction SilentlyContinue
+
+        $FolderData = New-Object PSObject -Property @{
+            FolderSize =  $Folderstats | measure-object -property length -sum -ErrorAction SilentlyContinue | Select -ExpandProperty sum -ErrorAction SilentlyContinue
+            FileCount =   $Folderstats | measure-object | select -ExpandProperty count -ErrorAction SilentlyContinue
+            FolderPath = $Item.FullName
+            LastAccessTime = $Item.LastAccessTime
         }
-  
-        $object = New-Object -TypeName PSObject
-        $object | Add-Member -MemberType NoteProperty -Name Folder -Value (Get-Item $Root).FullName
-        $object | Add-Member -MemberType NoteProperty -Name Size -Value $size
-        $folders += $object
-    
-        Write-Output $folders
-  }
-  
-    END {}
+
+        $TempFolderArray += $FolderData
+    }
+
+    Return $TempFolderArray
+	
 }
 <#######################################################################################>
-#Variable Declarations
+#
 
 
-<#
 $Servers = Get-ADComputer -LDAPFilter “(&(objectcategory=computer)(OperatingSystem=*server*))”
 
 If(!$Servers)
 {
-    Write-Log "Gathering list of servers from Active Directory failed."    
+    Write-Log "Gathering list of servers from Active Directory failed."
+    exit  
 }
 
 Foreach($Server in $Servers)
 {
-    Invoke-Command -ComputerName $($Server.name) -ScriptBlock $Scriptblock
-}
-#>
-
-$SizeThreshold = ""
-$AgeThreshold = ""
-$FolderArray = @()
-
-$LogicalDrives = Get-WmiObject -Class Win32_LogicalDisk | Where { $_.DriveType -eq 3 }
-Foreach($Drive in $LogicalDrives)
-{
-    $root = $drive.deviceid
-    $Items = Get-ChildItem $Root -Attributes directory -Recurse -Force -ea SilentlyContinue
-
-    Foreach($item in $items)
-    {
-        $FolderData = New-Object PSObject -Property @{
-        FolderSize = $($Item.FullName) | Get-childitem | Measure-object -Sum Length
-        FileCount =  $Item | Get-childitem | Measure-object -Sum Count
-        FolderPath = $Item.FullName
-        }
-
-        $FolderArray += $FolderData
-    }
-
+    Invoke-Command -ComputerName $($Server.name) -ScriptBlock {
     
+    
+            #[Int]$SizeThreshold = 1073741824 -1 Gig
+            [Int]$SizeThreshold = 314572800
+            $AgeThreshold = (get-date).AddDays(-60)
+            [Array]$FolderArray = @()
+
+            $LogicalDrives = Get-WmiObject -Class Win32_LogicalDisk | Where { $_.DriveType -eq 3 }
+
+            If(!$LogicalDrives)
+            {
+                Write-Log "No logical drives were detected on this machine."
+                exit
+            }
+
+            Foreach($Drive in $LogicalDrives)
+            {
+                $DriveResult = Process-Drive -DriveID $Drive.DeviceID
+
+                If($DriveResult -Ne "No Folders")
+                {
+                    $FolderArray += $DriveResult
+                }
+            }
+
+            $SuspectFolders = $FolderArray | Where-Object {$_.foldersize -gt $SizeThreshold -and $_.LastAccessTime -lt $AgeThreshold} |Sort-Object -Property FolderSize -Descending  
+    
+    }
 }
+
+
