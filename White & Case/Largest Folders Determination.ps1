@@ -159,5 +159,5 @@ If(!$SuspectFolders)
     Write-log "No large dormant folders exist on this machine."
     Return "No Bad Folders"
 }
-    
+
 Return $Suspectfolders
