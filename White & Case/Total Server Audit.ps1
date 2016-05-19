@@ -893,7 +893,7 @@ Write-HTML -Message "  					</tr>"
 
 ForEach ($objEvent in $colLoggedEvents)
 {
-	$dtmEventDate = $ObjEvent.ConvertToDateTime($objEvent.TimeWritten)
+	$dtmEventDate = [Management.ManagementDateTimeConverter]::ToDateTime($objEvent.TimeWritten)
 	Write-HTML -Message " 					<tr>"
 	Write-HTML -Message "	 					<td width='10%'>$($objEvent.EventCode)</font></td>"
 	Write-HTML -Message "	 					<td width='10%'>$($objEvent.SourceName)</font></td>"
