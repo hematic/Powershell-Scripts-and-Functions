@@ -222,7 +222,7 @@ function Create-Share
 [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Drawing") 
 [void] [System.Reflection.Assembly]::LoadWithPartialName("System.Windows.Forms")  
 $Form = New-Object System.Windows.Forms.Form    
-$Form.Size = New-Object System.Drawing.Size(700,400)
+$Form.Size = New-Object System.Drawing.Size(800,500)
 $Form.text = "White & Case Share Creation Tool"
 
 #endregion
@@ -234,7 +234,7 @@ $Form.text = "White & Case Share Creation Tool"
 ####################################
 $ShareDropDownBox = New-Object System.Windows.Forms.ComboBox 
 $ShareDropDownBox.Location = New-Object System.Drawing.Size(20,50)
-$ShareDropDownBox.Size = New-Object System.Drawing.Size(100,25)
+$ShareDropDownBox.Size = New-Object System.Drawing.Size(120,25)
 $ShareDropDownBox.DropDownHeight = 200
 $ShareDropDownBox.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList
 $Form.Controls.Add($ShareDropDownBox)
@@ -249,7 +249,7 @@ Foreach ($Share in $ShareList)
 ###################################
 $ShareLabel = New-Object System.Windows.Forms.Label
 $ShareLabel.Location = New-Object System.Drawing.Point(20,30)
-$ShareLabel.Size = New-Object System.Drawing.Size(100, 25)
+$ShareLabel.Size = New-Object System.Drawing.Size(150, 25)
 $ShareLabel.Text = "Choose the Share"
 $Form.Controls.Add($ShareLabel)
 
@@ -262,7 +262,7 @@ $Form.Controls.Add($ShareLabel)
 #####################################
 $RegionDropDownBox = New-Object System.Windows.Forms.ComboBox 
 $RegionDropDownBox.Location = New-Object System.Drawing.Size(20,100)       
-$RegionDropDownBox.Size = New-Object System.Drawing.Size(100,25)            
+$RegionDropDownBox.Size = New-Object System.Drawing.Size(120,25)            
 $RegionDropDownBox.DropDownHeight = 200
 $RegionDropDownBox.DropDownStyle = [System.Windows.Forms.ComboBoxStyle]::DropDownList                                     
 $Form.Controls.Add($RegionDropDownBox)  
@@ -289,11 +289,12 @@ $Form.Controls.Add($ShareLabel)
 #Create the Submit Button#
 ##########################
 $SubmitButton = New-Object System.Windows.Forms.Button 
-$SubmitButton.Location = New-Object System.Drawing.Size(550,30) 
-$SubmitButton.Size = New-Object System.Drawing.Size(110,80) 
+$SubmitButton.Location = New-Object System.Drawing.Size(600,30) 
+$SubmitButton.Size = New-Object System.Drawing.Size(130,100) 
 $SubmitButton.Text = "Submit"
 $SubmitButton.Enabled = $True
-$SubmitButton.Add_Click({Process-Choices}) 
+$SubmitButton.Add_Click({Process-Choices})
+
 $Form.Controls.Add($SubmitButton)
 
 #endregion
@@ -343,7 +344,7 @@ $Form.Controls.Add($ShareLabel)
 
 $Loggingbox = New-Object 'System.Windows.Forms.RichTextBox'
 $Loggingbox.Location = New-Object System.Drawing.Size(300,150) 
-$Loggingbox.Size = New-Object System.Drawing.Point(375,200) 
+$Loggingbox.Size = New-Object System.Drawing.Point(475,300) 
 $Loggingbox.Name = "Output Box"
 $Loggingbox.TabIndex = 2
 $Loggingbox.Text = ""
