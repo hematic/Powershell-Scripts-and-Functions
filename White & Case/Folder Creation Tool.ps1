@@ -172,8 +172,8 @@ function Create-Share
 		[Object]$Credential
     )
     
-    #$CompletePath = "\\WCNET\Firm\$Share\$Region\$FolderName"
-    $CompletePath = "C:\windows\temp\$Share\$Region\$FolderName"
+    $CompletePath = "\\WCNET\Firm\$Share\$Region\$FolderName"
+    #$CompletePath = "C:\windows\temp\$Share\$Region\$FolderName"
     
     If(Test-Path $CompletePath)
     {
@@ -187,6 +187,17 @@ function Create-Share
     {
         Write-RichText -LogType Success -LogMsg "`n `t The specified path was successfully created. `n `t ($CompletePath)"
 
+        $message = @"
+******************************
+User        : $Env:username
+Share       : $Share
+Region      : $Region
+Client #    : $($ClientNumberTextBox.text)
+Client Name : $($ChosenClientName.substring(0,20))
+"@
+
+        Write-Log -Message $message
+
         #Clear the selections
         $ShareDropDownBox.SelectedIndex = -1
         $ShareDropDownBox.SelectedIndex = -1
@@ -194,7 +205,6 @@ function Create-Share
         $RegionDropDownBox.SelectedIndex = -1
         $ClientNumberTextBox.Text = ''
         $ClientNameTextBox.Text = ''
-
 
         Return
     }
@@ -207,12 +217,44 @@ function Create-Share
     }
 }
 
+Function Write-Log
+{
+	<#
+	.SYNOPSIS
+		A function to write ouput messages to a logfile.
+	
+	.DESCRIPTION
+		This function is designed to send timestamped messages to a logfile of your choosing.
+		Use it to replace something like write-host for a more long term log.
+	
+	.PARAMETER Message
+		The message being written to the log file.
+	
+	.EXAMPLE
+		PS C:\> Write-Log -Message 'This is the message being written out to the log.' 
+	
+	.NOTES
+		N/A
+#>
+	
+	Param
+	(
+		[Parameter(Mandatory = $True, Position = 0)]
+		[String]$Message
+	)
+
+    
+	add-content -path $LogFilePath -value ($Message)
+    Write-Output $Message
+}
+
 #######################
 #Variable Declarations#
 #######################
 
 [Array]$ShareList = @("Admin","Client")
 [Array]$RegionList = @("Americas","Emea","Asiapac")
+[String]$LogfilePath = "\\wcnet\firm\Applications\GTS\Software\Scripts\_Logs\Folder Creation Tool.txt"
 
 #region DeclareForm
 
@@ -314,7 +356,7 @@ $Form.Controls.Add($ClientNumberTextBox)
 $ShareLabel = New-Object System.Windows.Forms.Label
 $ShareLabel.Location = New-Object System.Drawing.Point(20,130)
 $ShareLabel.Size = New-Object System.Drawing.Size(260, 25)
-$ShareLabel.Text = "Type in the Client Matter Number"
+$ShareLabel.Text = "Type in the Client Number"
 $Form.Controls.Add($ShareLabel)
 
 #endregion
@@ -335,7 +377,7 @@ $Form.Controls.Add($ClientNameTextBox)
 $ShareLabel = New-Object System.Windows.Forms.Label
 $ShareLabel.Location = New-Object System.Drawing.Point(20,180)
 $ShareLabel.Size = New-Object System.Drawing.Size(260, 25)
-$ShareLabel.Text = "Type in the Client Matter Name"
+$ShareLabel.Text = "Type in the Client Name"
 $Form.Controls.Add($ShareLabel)
 
 #endregion

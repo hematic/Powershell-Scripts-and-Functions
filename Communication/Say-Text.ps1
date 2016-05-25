@@ -15,5 +15,3 @@ Param (
 }
 
 Say-text
-
-]
