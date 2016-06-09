@@ -259,7 +259,17 @@ Function Create-Share
         Return
     }
 
-    New-Item -ItemType Directory -Path "$CompletePath" -Credential $Credential -Force
+    Try
+    {
+        #invoke-command -Credential $Credential -ScriptBlock {
+        New-Item -ItemType Directory -Path "$CompletePath" -Force #-Credential $Credential 
+        #}
+    }
+
+    Catch
+    {
+        $NIError = $_
+    }
 
     If(Test-Path $CompletePath)
     {
@@ -271,7 +281,7 @@ User        : $Env:username
 Share       : $Share
 Region      : $Region
 Client #    : $($ClientNumberTextBox.text)
-Client Name : $($ChosenClientName.substring(0,20))
+Client Name : $ChosenClientName
 "@
 
         Write-Log -Message $message
@@ -290,7 +300,7 @@ Client Name : $($ChosenClientName.substring(0,20))
     Else
     {
         Write-RichText -LogType Error -LogMsg "`n `t Creation of the specified path ($CompletePath) failed."
-        Write-RichText -LogType Error -LogMsg "`n `t Reason : $?"
+        Write-Richtext -LogType Error -LogMsg "`n `t $NIError"
         Return    
     }
 }

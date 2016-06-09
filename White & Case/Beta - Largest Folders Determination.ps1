@@ -32,38 +32,13 @@
         White & Case
 #>
 
-<#######################################################################################>
-#Function Declarations
-Function Write-Log
-{
-	<#
-	.SYNOPSIS
-		A function to write ouput messages to a logfile.
-	
-	.DESCRIPTION
-		This function is designed to send timestamped messages to a logfile of your choosing.
-		Use it to replace something like write-host for a more long term log.
-	
-	.PARAMETER Message
-		The message being written to the log file.
-	
-	.EXAMPLE
-		PS C:\> Write-Log -Message 'This is the message being written out to the log.' 
-	
-	.NOTES
-		N/A
-#>
-	
-	Param
-	(
-		[Parameter(Mandatory = $True, Position = 0)]
-		[String]$Message
-	)
+$ListofComputers = Get-ADComputer -Filter {name -like "*TAMLT0004*"} -Property *
+$Credential = Get-Credential
+$ListofComputers | Start-RSjob -Name {$_.name} -ScriptBlock {
 
-	add-content -path $LogFilePath -value ($Message)
-    Write-Output $Message
-}
-
+Param($ListofComputers,$Credential)
+Invoke-command {
+        
 Function Process-Drive
 {
 <#
@@ -101,11 +76,8 @@ Function Process-Drive
 
     If(!$Items)
     {
-        Write-Log "No folders found on Drive $($Drive.DeviceID) for Server $(hostname)"
         Return "No Folders"
     }
-
-    Write-Log "Beginning to process $($Items.count) on drive $Root"
 
     Foreach($Item in $Items)
     {
@@ -125,39 +97,47 @@ Function Process-Drive
 	
 }
 
-<#######################################################################################>
-#Variable Declarations
-$LogFilePath = "$env:windir\temp\LargestFolderDetermination.txt"
-[Int]$SizeThreshold = 314572800
-[DateTime]$AgeThreshold = (get-date).AddDays(-60)
-[Array]$FolderArray = @()
-
-<#######################################################################################>
-#Main Script
-$LogicalDrives = Get-WmiObject -Class Win32_LogicalDisk | Where { $_.DriveType -eq 3 }
-
-If(!$LogicalDrives)
-{
-    Write-Log "No logical drives were detected on this machine."
-    Return "No Drives Detected"
-}
-
-Foreach($Drive in $LogicalDrives)
-{
-    $DriveResult = Process-Drive -DriveID $Drive.DeviceID
-
-    If($DriveResult -Ne "No Folders")
+    [Int]$SizeThreshold = 314572800
+    [DateTime]$AgeThreshold = (get-date).AddDays(-60)
+    [Array]$FolderArray = @()
+    $LogicalDrives = Get-WmiObject -Class Win32_LogicalDisk | Where { $_.DriveType -eq 3 }
+        
+    If(!$LogicalDrives)
     {
-        $FolderArray += $DriveResult
+        $TempData = New-Object PSObject -Property @{
+            Name          = $_.name
+            LogicalDrives = "No Drives"
+            Suspectfolders   = "No Folders"
+            }
     }
+
+    Else
+    {
+        Foreach($Drive in $LogicalDrives)
+        {
+            $DriveResult = Process-Drive -DriveID $Drive.DeviceID
+
+            If($DriveResult -Ne "No Folders")
+            {
+                $FolderArray += $DriveResult
+            }
+        }
+
+        $SuspectFolders = $FolderArray | Where-Object {$_.foldersize -gt $SizeThreshold -and $_.LastAccessTime -lt $AgeThreshold} |Sort-Object -Property FolderSize -Descending  
+    
+        $TempData = New-Object PSObject -Property @{
+            Name           = $_.name
+            LogicalDrives  = $LogicalDrives
+            Suspectfolders = $SuspectFolders
+            }
+    }
+
+    $TempData
+
+} -computername $($_.name) -Credential $Credential
+
+$Tempdata
+
 }
 
-$SuspectFolders = $FolderArray | Where-Object {$_.foldersize -gt $SizeThreshold -and $_.LastAccessTime -lt $AgeThreshold} |Sort-Object -Property FolderSize -Descending  
-
-If(!$SuspectFolders)
-{
-    Write-log "No large dormant folders exist on this machine."
-    Return "No Bad Folders"
-}
-
-Return $Suspectfolders
+$Data = Get-RSjob | Receive-RSJob
