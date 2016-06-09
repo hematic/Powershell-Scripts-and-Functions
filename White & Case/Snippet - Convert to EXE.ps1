@@ -1,1 +1,1 @@
-﻿powershell.exe -command "&'C:\Users\marshph\Downloads\PS2EXE\ps2exe.ps1' -inputfile 'C:\Users\marshph\Downloads\Display Computers Status And info with GUI.ps1' -outputfile 'c:\windows\temp\newexe.exe' -noconsole"
+﻿powershell.exe -command "&'C:\Users\marshph\Documents\Hematic_Github\Powershell-Scripts-and-Functions\Modules\PS2EXE\ps2exe.ps1' -inputfile 'C:\Users\marshph\Documents\Hematic_Github\Powershell-Scripts-and-Functions\White & Case\GUI - Ping Tool (Beta v2).ps1' -outputfile 'c:\windows\temp\PingTool V2.exe' -noconsole"
