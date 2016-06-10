@@ -342,7 +342,7 @@ Function Write-Log
 
 [Array]$ShareList = @("Admin","Client")
 [Array]$RegionList = @("Americas","Emea","Asiapac")
-[String]$LogfilePath = "\\wcnet\firm\Applications\GTS\Software\Scripts\_Logs\Folder Creation Tool.txt"
+[String]$LogfilePath = "\\wcnet\firm\Applications\GTS\Software\Scripts\_Logs\Folder Creation Tool\Folder Creation Tool.txt"
 
 #region DeclareForm
 
@@ -354,7 +354,7 @@ Function Write-Log
 $Form = New-Object System.Windows.Forms.Form    
 $Form.Size = New-Object System.Drawing.Size(800,500)
 $Form.text = "White & Case Share Creation Tool"
-$Form.backcolor = "gray"
+$Form.BackColor = [System.Drawing.Color]::FromArgb(255,185,209,234)
 
 #endregion
 
@@ -454,7 +454,7 @@ $Form.Controls.Add($ClearButton)
 $ClientNumberTextBox = New-Object System.Windows.Forms.TextBox 
 $ClientNumberTextBox.Location = New-Object System.Drawing.Size(325,50) 
 $ClientNumberTextBox.Size = New-Object System.Drawing.Size(260,20) 
-$ClientNumberTextBox.BackColor = "White"
+$ClientNumberTextBox.BackColor = 'Gainsboro'
 $Form.Controls.Add($ClientNumberTextBox) 
 
 ##################################################
@@ -476,7 +476,7 @@ $Form.Controls.Add($ShareLabel)
 $ClientNameTextBox = New-Object System.Windows.Forms.TextBox 
 $ClientNameTextBox.Location = New-Object System.Drawing.Size(325,110) 
 $ClientNameTextBox.Size = New-Object System.Drawing.Size(260,20)
-$ClientNameTextBox.BackColor = "White"
+$ClientNameTextBox.BackColor = 'Gainsboro'
 $Form.Controls.Add($ClientNameTextBox) 
 
 ################################################
@@ -503,7 +503,7 @@ $Loggingbox.Name = "Output Box"
 $Loggingbox.TabIndex = 2
 $Loggingbox.Text = ""
 $Loggingbox.font = "Arial"
-$Loggingbox.BackColor = "White"
+$Loggingbox.BackColor = 'Gainsboro'
 $Form.Controls.Add($Loggingbox)
 
 #endregion
