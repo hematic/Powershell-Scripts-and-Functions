@@ -1,5 +1,4 @@
-﻿#$PassedInstances = "$ENV:SQLInstances"
-$PassedInstances = "AM1FMDB903\FINDATA,AM1MFDB851\WCDATA,AM1HRDB851\HRDATA"
+﻿$PassedInstances = "$ENV:SQLInstances"
 [Array]$SQLInstances = $PassedInstances -split ","
 
 $SecPassword = ConvertTo-SecureString "$ENV:SAPassword" -AsPlainText -Force
@@ -100,3 +99,5 @@ Foreach($Instance in $SQLInstances)
     }
 
 }
+
+get-pssession | remove-pssession
