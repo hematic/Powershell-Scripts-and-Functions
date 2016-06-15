@@ -1,4 +1,5 @@
-﻿Import-Module ActiveDirectory
+﻿
+Import-Module ActiveDirectory
 $Users = import-csv -path "C:\Users\PMarshall\Documents\My Received Files\TitleImport.csv"
 
 Foreach($User in $Users)
