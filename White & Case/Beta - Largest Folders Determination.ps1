@@ -32,12 +32,13 @@
         White & Case
 #>
 
-$ListofComputers = Get-ADComputer -Filter {name -like "*TAMLT0004*"} -Property *
+$ListofComputers = Get-ADComputer -Filter  'OperatingSystem -like "*server*"' | Select -Expand name
 $Credential = Get-Credential
-$ListofComputers | Start-RSjob -Name {$_.name} -ScriptBlock {
 
-Param($ListofComputers,$Credential)
-Invoke-command {
+$ListofComputers | Start-RSjob -Name {$_} -ScriptBlock {
+		Param($ListofComputers)
+	
+	Invoke-command -computername $($ListofComputers) -Credential $Using:Credential -ScriptBlock {
         
 Function Process-Drive
 {
@@ -105,7 +106,6 @@ Function Process-Drive
     If(!$LogicalDrives)
     {
         $TempData = New-Object PSObject -Property @{
-            Name          = $_.name
             LogicalDrives = "No Drives"
             Suspectfolders   = "No Folders"
             }
@@ -126,7 +126,6 @@ Function Process-Drive
         $SuspectFolders = $FolderArray | Where-Object {$_.foldersize -gt $SizeThreshold -and $_.LastAccessTime -lt $AgeThreshold} |Sort-Object -Property FolderSize -Descending  
     
         $TempData = New-Object PSObject -Property @{
-            Name           = $_.name
             LogicalDrives  = $LogicalDrives
             Suspectfolders = $SuspectFolders
             }
@@ -134,10 +133,10 @@ Function Process-Drive
 
     $TempData
 
-} -computername $($_.name) -Credential $Credential
+}
 
 $Tempdata
 
 }
 
-$Data = Get-RSjob | Receive-RSJob
+#$Data = Get-RSjob | Receive-RSJob
