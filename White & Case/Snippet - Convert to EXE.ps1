@@ -1,1 +1,0 @@
-﻿powershell.exe -command "&'C:\Users\marshph\Documents\Hematic_Github\Ping-Tool\GUI - Ping Tool.ps1' -outputfile 'c:\windows\temp\PingTool.exe' -noconsole"

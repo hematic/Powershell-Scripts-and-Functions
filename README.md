@@ -1,3 +1,1 @@
-# Powershell-Scripts-and-Functions
-
-Just a random collection of PowerShell Scripts and functions i have put together or found useful.
+![enter image description here](https://mountainss.files.wordpress.com/2014/04/powershell-for-automation.jpg)
