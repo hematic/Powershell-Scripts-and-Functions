@@ -2,50 +2,16 @@
 $SecPassword = ConvertTo-SecureString "$ENV:SAPassword" -AsPlainText -Force
 $GLOCred = New-Object System.Management.Automation.PSCredential ($ENV:SAUsername, $SecPassword)
 $Date = Get-Date -Uformat %Y-%m-%d
-$LogFilePath = "D:\Job Output\Automated Security Groups\SGCLog - $Date.txt"
 $Reportpath = "D:\Job Output\Automated Security Groups\SGCReport - $Date.xlsx"
 Import-Module ActiveDirectory
 Import-Module PSExcel
-#endregion
-
-#region Function Declarations
-
-Function Write-Log{
-	<#
-	.SYNOPSIS
-		A function to write ouput messages to a logfile.
-		
-	.DESCRIPTION
-		This function is designed to send timestamped messages to a logfile of your choosing.
-		Use it to replace something like write-host for a more long term log.
-		
-	.PARAMETER Message
-		The message being written to the log file.
-		
-	.EXAMPLE
-		PS C:\> Write-Log -Message 'This is the message being written out to the log.' 
-		
-	.NOTES
-		N/A
-#>
-		
-	Param
-	(
-		[Parameter(Mandatory = $True, Position = 0)]
-		[String]$Message
-	)
-		
-		
-	add-content -path $LogFilePath -value ($Message)
-}
-
 #endregion
 
 #region Gather SQl Data
 $Session = New-PsSession -ComputerName 'am1mfdb001' -Credential $GLOCred
 
 If (!$Session){
-    Write-Log "Unable to connect to the remote machine."
+    Write-output "Unable to connect to the remote machine."
     exit;
 }
 
@@ -93,7 +59,7 @@ $Query = Invoke-Command -ComputerName 'am1mfdb001' -Credential $GLOCred -ScriptB
 #region Verify SQL Data
 If(!$Query[0].OfficeName -or !$Query[0].emailaddress)
 {
-    Write-Log "Returned Data appears to be in the wrong format."
+    Write-output "Returned Data appears to be in the wrong format."
     exit;
 }
 #endregion
@@ -101,9 +67,9 @@ If(!$Query[0].OfficeName -or !$Query[0].emailaddress)
 #region Gather Unique offices and Security Groups
 Get-PSSession | Remove-PSSession
 $UniqueOffices = $Query.officename | select -Unique | Sort-Object
-Write-Log "$($Uniqueoffices.count) unique office names detected."
+Write-output "$($Uniqueoffices.count) unique office names detected."
 $SecurityGroups = Get-ADGroup -Filter {Name -like "*(ASG)*"}
-Write-Log "$($SecurityGroups.count) Security Groups detected."
+Write-output "$($SecurityGroups.count) Security Groups detected."
 #endregion
 
 #region Create Missing Security Groups
@@ -135,7 +101,7 @@ Foreach ($Office in $UniqueOffices)
 
 If($NewGroups)
 {
-    Write-Log "Checking new creations."
+    Write-output "Checking new creations."
 
     Foreach($Group in $NewGroups)
     {
@@ -143,12 +109,12 @@ If($NewGroups)
 
         If($Created)
         {
-            Write-Log "$($Group + '(ASG)') Created Successfully"
+            Write-output "$($Group + '(ASG)') Created Successfully"
         }
 
         Else
         {
-            Write-Log "Failed to create $($Group + '(ASG)')"
+            Write-output "Failed to create $($Group + '(ASG)')"
         }
     }
 }
