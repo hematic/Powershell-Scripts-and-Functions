@@ -3,6 +3,9 @@ $SecPassword = ConvertTo-SecureString "$ENV:SAPassword" -AsPlainText -Force
 $GLOCred = New-Object System.Management.Automation.PSCredential ($ENV:SAUsername, $SecPassword)
 $Date = Get-Date -Uformat %Y-%m-%d
 $Reportpath = "D:\Job Output\Automated Security Groups\SGCReport - $Date.xlsx"
+#endregion
+
+#region Import Modules
 Import-Module ActiveDirectory
 Import-Module PSExcel
 #endregion
@@ -54,6 +57,7 @@ $Query = Invoke-Command -ComputerName 'am1mfdb001' -Credential $GLOCred -ScriptB
 		$Result
 	}
 
+Get-PSSession | Remove-PSSession
 #endregion
 
 #region Verify SQL Data
@@ -65,7 +69,7 @@ If(!$Query[0].OfficeName -or !$Query[0].emailaddress)
 #endregion
 
 #region Gather Unique offices and Security Groups
-Get-PSSession | Remove-PSSession
+
 $UniqueOffices = $Query.officename | select -Unique | Sort-Object
 Write-output "$($Uniqueoffices.count) unique office names detected."
 $SecurityGroups = Get-ADGroup -Filter {Name -like "*(ASG)*"}
