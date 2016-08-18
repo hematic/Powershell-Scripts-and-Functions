@@ -1,21 +1,23 @@
-﻿#region Variable Declarations
+﻿#Variable Declarations
+#######################
+
 #$SecPassword = ConvertTo-SecureString "$ENV:SAPassword" -AsPlainText -Force
 #$GLOCred = New-Object System.Management.Automation.PSCredential ($ENV:SAUsername, $SecPassword)
 $GLOCred = Get-Credential
 $Date = Get-Date -Uformat %Y-%m-%d
 #$Reportpath = "D:\Job Output\Automated Security Groups\SGCReport - $Date.xlsx"
 $Reportpath = "C:\Temp\SGCReport - $Date.xlsx"
-#endregion
+$Suffix = '-P-AllOffice'
+$Filter = 'Name -like' + ' "*' + $Suffix + '"' 
 
-#region Import Modules
-#AD Module Used for Queries. PSExcel module used for reporting and outputting all the data to excel.
+#Import Modules
+#######################
 
 Import-Module ActiveDirectory
 Import-Module PSExcel
 
-#endregion
-
-#region Function Declarations
+#Function Declarations
+#######################
 
 function Get-SiteCode{
 
@@ -57,9 +59,8 @@ function Fix-Jabroni{
 
 }
 
-#endregion
-
-#region Gather SQl Data
+#Gather SQl Data
+#################
 
 $Session = New-PsSession -ComputerName 'am1mfdb001' -Credential $GLOCred
 
@@ -109,9 +110,8 @@ $Query = Invoke-Command -ComputerName 'am1mfdb001' -Credential $GLOCred -ScriptB
 
 Get-PSSession | Remove-PSSession
 
-#endregion
-
-#region Verify SQL Data
+#Verify SQL Data
+#################
 
 If(!$Query[0].OfficeName -or !$Query[0].emailaddress)
 {
@@ -119,16 +119,14 @@ If(!$Query[0].OfficeName -or !$Query[0].emailaddress)
     exit;
 }
 
-#endregion
-
-#region Gather Unique offices and Security Groups
+#Gather Unique offices and Security Groups
+###########################################
 
 $UniqueOffices = $Query.officename | Where-object {$_ -ne 'remote'} | select -Unique | Sort-Object
-$SecurityGroups = Get-ADGroup -Filter {Name -like "*-P-AllOffice"}
+$SecurityGroups = Get-ADGroup -Filter $Filter
 
-#endregion
-
-#region Create Missing Security Groups
+#Create Missing Security Groups
+################################
 
 $newgroups = @()
 $LocCodes = @()
@@ -152,18 +150,18 @@ Foreach ($Office in $UniqueOffices)
 
         $LocCodes += $Object
 
-        If((($SecurityGroups | Where-Object {$_.samaccountname -eq $SiteCode + '-p-AllOffice'} | measure-object).count) -gt 0)
+        If((($SecurityGroups | Where-Object {$_.samaccountname -eq $SiteCode + $Suffix} | measure-object).count) -gt 0)
         {}
 
         Else{
         
-            $NewGroups += $SiteCode + '-P-AllOffice'
+            $NewGroups += $SiteCode + $Suffix
         
-            New-ADGroup -Name $($SiteCode + '-P-AllOffice') `
-			    -SamAccountName $($SiteCode + '-P-AllOffice') `
+            New-ADGroup -Name $($SiteCode + $Suffix) `
+			    -SamAccountName $($SiteCode + $Suffix) `
 			    -GroupCategory Security `
 			    -GroupScope Global `
-			    -DisplayName $($SiteCode + '-P-AllOffice') `
+			    -DisplayName $($SiteCode + $Suffix) `
 			    -Path "OU=Automated Groups,OU=Security Groups,OU=FIRMWIDE,DC=WCNET,DC=whitecase,DC=com" `
 			    -Description "Automated Group created by leveraging ODS." `
 			    -Credential $GLOCred
@@ -174,9 +172,8 @@ Foreach ($Office in $UniqueOffices)
 }
 
 
-#endregion
-
-#region Verify New Creations
+#Verify New Creations
+######################
 
 If($NewGroups)
 {
@@ -198,9 +195,8 @@ If($NewGroups)
     }
 }
 
-#endregion
-
-#region Determine Valid AD Users
+#Determine Valid AD Users
+##########################
 
 $ADUsers = @()
 $nonadusers = @()
@@ -236,11 +232,10 @@ Foreach($User in $FilteredUsers)
         
 } 
 
-#endregion
+#Add missing members to each group
+###################################
 
-#region Add missing members to each group
-
-$ADGroups = Get-ADGroup -Filter {Name -like "*-P-AllOffice*"}
+$ADGroups = Get-ADGroup -Filter $Filter
 
 Foreach($Group in $ADGroups)
 {
@@ -257,9 +252,9 @@ Foreach($Group in $ADGroups)
     }
 }
 
-#endregion
+#Reporting Stuff
+#################
 
-#region Reporting Stuff
 $ADGroups = $ADGroups | Sort-Object
 Foreach($Group in $ADGroups)
 {
@@ -267,7 +262,7 @@ Foreach($Group in $ADGroups)
     $members | Export-XLSX -Path $Reportpath -worksheetname $Group.Name
 }
 
-#endregion
-
 #To Delete the test groups
-#get-adgroup -Filter {name -like "*-P-AllOffice*"} | Remove-ADGroup -Confirm:$False -Credential $GLOCred
+###########################
+
+#get-adgroup -Filter $Filter | Remove-ADGroup -Confirm:$False -Credential $GLOCred
