@@ -13,6 +13,4 @@
         [Reflection.Assembly]::LoadWithPartialName('System.Speech') | Out-Null   
         $object = New-Object System.Speech.Synthesis.SpeechSynthesizer 
         $object.Speak($Message)
-        $object.Speak($Message) 
-        $object.Speak($Message)  
 }
