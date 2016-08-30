@@ -1,12 +1,10 @@
 ﻿#Variable Declarations
 #######################
 
-#$SecPassword = ConvertTo-SecureString "$ENV:SAPassword" -AsPlainText -Force
-#$GLOCred = New-Object System.Management.Automation.PSCredential ($ENV:SAUsername, $SecPassword)
-$GLOCred = Get-Credential
+$SecPassword = ConvertTo-SecureString "$ENV:SAPassword" -AsPlainText -Force
+$GLOCred = New-Object System.Management.Automation.PSCredential ($ENV:SAUsername, $SecPassword)
 $Date = Get-Date -Uformat %Y-%m-%d
-#$Reportpath = "D:\Job Output\Automated Security Groups\SGCReport - $Date.xlsx"
-$Reportpath = "C:\Temp\SGCReport - $Date.xlsx"
+$Reportpath = "D:\Job Output\Automated Security Groups\SGCReport - $Date.xlsx"
 $Suffix = '-P-AllOffice'
 $Filter = 'Name -like' + ' "*' + $Suffix + '"' 
 
@@ -265,4 +263,4 @@ Foreach($Group in $ADGroups)
 #To Delete the test groups
 ###########################
 
-#get-adgroup -Filter $Filter | Remove-ADGroup -Confirm:$False -Credential $GLOCred
+#get-adgroup -Filter $Suffix | Remove-ADGroup -Confirm:$False -Credential $GLOCred

@@ -78,5 +78,3 @@ var dataSet= $($dataset)
         }
     }
 }
-
-Set-Alias odt export-dt

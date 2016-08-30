@@ -344,5 +344,3 @@
             }
     }
 }
-
-Get-NetworkStatistics
